@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tambahkan styles dasar untuk dark mode */
+@layer base {
+  body {
+    /* Default Light Mode */
+    @apply bg-pastel-bg text-pastel-text transition-colors duration-300;
+  }
+  /* Saat class .dark aktif di <html> */
+  .dark body {
+    @apply bg-pastel-dark-bg text-pastel-dark-text;
+  }
+}
