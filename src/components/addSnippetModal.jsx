@@ -6,7 +6,7 @@ import { githubLight } from '@uiw/codemirror-theme-github'
 import { useSnippetStore } from '../store/snippetStore'
 import { useAlertStore } from '../store/alertStore'
 import { useThemeStore } from '../store/themeStore'
-import { getLanguageExtension, popularLanguages } from '../utils/languageConfig'
+import { getLanguageExtension } from '../utils/languageConfig'
 import LanguageSelector from './languageSelector'
 import { useShortcut } from '../hooks/useShortcut'
 import { formatCode } from '../utils/formatCode'
@@ -19,16 +19,16 @@ export default function AddSnippetModal({ isOpen, onClose }) {
   
   // State Form
   const [title, setTitle] = useState('')
-  const [language, setLanguage] = useState('javascript')
+  const [language, setLanguage] = useState('') // PERBAIKAN: Default kosong (bukan 'javascript')
   const [code, setCode] = useState('// Ketik kodemu disini...')
   const [description, setDescription] = useState('')
   const [tagsInput, setTagsInput] = useState('')
   const [isPublic, setIsPublic] = useState(false)
   const [isFormatting, setIsFormatting] = useState(false)
 
-  // --- BATASAN VALIDASI (KEAMANAN) ---
+  // --- BATASAN VALIDASI ---
   const MAX_TITLE_LENGTH = 100
-  const MAX_CODE_LENGTH = 20000 // Sekitar 20k karakter code
+  const MAX_CODE_LENGTH = 20000
   const MAX_DESC_LENGTH = 500
 
   const performSubmit = async () => {
@@ -38,12 +38,18 @@ export default function AddSnippetModal({ isOpen, onClose }) {
         return
     }
 
+    // PERBAIKAN: Validasi Bahasa Wajib Diisi
+    if (!language.trim()) {
+        showAlert('error', 'Validasi Gagal', 'Silakan pilih atau ketik bahasa pemrograman.')
+        return
+    }
+
     if (!code.trim() || code === '// Ketik kodemu disini...') {
         showAlert('error', 'Validasi Gagal', 'Kode tidak boleh kosong.')
         return
     }
 
-    // 2. Validasi Panjang Input (Mencegah Spam/Buffer Overflow)
+    // 2. Validasi Panjang Input
     if (title.length > MAX_TITLE_LENGTH) {
         showAlert('error', 'Judul Terlalu Panjang', `Maksimal ${MAX_TITLE_LENGTH} karakter.`)
         return
@@ -61,15 +67,14 @@ export default function AddSnippetModal({ isOpen, onClose }) {
     
     setLoading(true)
     try {
-      // 3. Sanitasi Input Sederhana (Trim)
       const tagsArray = tagsInput
         .split(',')
-        .map(tag => tag.trim()) // Hapus spasi berlebih
+        .map(tag => tag.trim())
         .filter(tag => tag.length > 0)
-        .slice(0, 5) // Batasi maksimal 5 tag per snippet
+        .slice(0, 5)
 
       await addSnippet({
-        title: title.trim(), // Simpan versi bersih
+        title: title.trim(),
         language,
         code,
         description: description.trim(),
@@ -82,11 +87,11 @@ export default function AddSnippetModal({ isOpen, onClose }) {
       setCode('// Ketik kodemu disini...')
       setDescription('')
       setTagsInput('')
-      setLanguage('javascript')
+      setLanguage('') // PERBAIKAN: Reset ke kosong
       setIsPublic(false)
       
       onClose()
-      showAlert('success', 'Berhasil!', 'Snippet baru telah disimpan dengan aman.')
+      showAlert('success', 'Berhasil!', 'Snippet baru telah disimpan.')
     } catch (error) {
       showAlert('error', 'Gagal', error.message)
     } finally {
@@ -95,6 +100,12 @@ export default function AddSnippetModal({ isOpen, onClose }) {
   }
 
   const handleFormat = async () => {
+    // Jika bahasa belum dipilih, ingatkan user
+    if (!language) {
+        showAlert('error', 'Pilih Bahasa', 'Pilih bahasa terlebih dahulu agar formatter bekerja dengan benar.')
+        return
+    }
+
     setIsFormatting(true)
     try {
       const formatted = await formatCode(code, language)
@@ -167,6 +178,7 @@ export default function AddSnippetModal({ isOpen, onClose }) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Bahasa</label>
+                {/* LanguageSelector akan menampilkan placeholder "Pilih atau ketik..." jika value kosong */}
                 <LanguageSelector value={language} onChange={(val) => setLanguage(val)} />
               </div>
 
