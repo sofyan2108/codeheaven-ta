@@ -1,4 +1,4 @@
-import { X, Code2, Loader2, Tag, Wand2 } from 'lucide-react'
+import { X, Code2, Loader2, Tag, Wand2, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { dracula } from '@uiw/codemirror-theme-dracula'
@@ -10,99 +10,61 @@ import { getLanguageExtension } from '../utils/languageConfig'
 import LanguageSelector from './languageSelector'
 import { useShortcut } from '../hooks/useShortcut'
 import { formatCode } from '../utils/formatCode'
+import { analyzeCodeWithAI } from '../utils/AIService'
 
 export default function AddSnippetModal({ isOpen, onClose }) {
   const { addSnippet } = useSnippetStore()
   const { showAlert } = useAlertStore()
   const { theme } = useThemeStore()
+  
   const [loading, setLoading] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false) // State loading AI
+  const [isFormatting, setIsFormatting] = useState(false) // State loading Format
   
   // State Form
   const [title, setTitle] = useState('')
-  const [language, setLanguage] = useState('') // PERBAIKAN: Default kosong (bukan 'javascript')
-  const [code, setCode] = useState('// Ketik kodemu disini...')
+  const [language, setLanguage] = useState('') // Default kosong agar user wajib pilih/AI detect
+  const [code, setCode] = useState('// Paste kodemu di sini...')
   const [description, setDescription] = useState('')
   const [tagsInput, setTagsInput] = useState('')
   const [isPublic, setIsPublic] = useState(false)
-  const [isFormatting, setIsFormatting] = useState(false)
 
-  // --- BATASAN VALIDASI ---
+  // --- KONSTANTA VALIDASI ---
   const MAX_TITLE_LENGTH = 100
   const MAX_CODE_LENGTH = 20000
   const MAX_DESC_LENGTH = 500
 
-  const performSubmit = async () => {
-    // 1. Validasi Input Kosong
-    if (!title.trim()) {
-        showAlert('error', 'Validasi Gagal', 'Judul snippet tidak boleh kosong.')
+  // --- LOGIKA AI (GEMINI) ---
+  const handleAnalyzeCode = async () => {
+    // Validasi kode minimal
+    if (!code || code.length < 10 || code.includes('Paste kodemu')) {
+        showAlert('error', 'Kode Kosong', 'Tempelkan kode programmu terlebih dahulu agar AI bisa membacanya.')
         return
     }
 
-    // PERBAIKAN: Validasi Bahasa Wajib Diisi
-    if (!language.trim()) {
-        showAlert('error', 'Validasi Gagal', 'Silakan pilih atau ketik bahasa pemrograman.')
-        return
-    }
-
-    if (!code.trim() || code === '// Ketik kodemu disini...') {
-        showAlert('error', 'Validasi Gagal', 'Kode tidak boleh kosong.')
-        return
-    }
-
-    // 2. Validasi Panjang Input
-    if (title.length > MAX_TITLE_LENGTH) {
-        showAlert('error', 'Judul Terlalu Panjang', `Maksimal ${MAX_TITLE_LENGTH} karakter.`)
-        return
-    }
-
-    if (code.length > MAX_CODE_LENGTH) {
-        showAlert('error', 'Kode Terlalu Panjang', `Snippet terlalu besar (maksimal ${MAX_CODE_LENGTH} karakter).`)
-        return
-    }
-
-    if (description.length > MAX_DESC_LENGTH) {
-        showAlert('error', 'Deskripsi Terlalu Panjang', `Maksimal ${MAX_DESC_LENGTH} karakter.`)
-        return
-    }
-    
-    setLoading(true)
+    setIsAnalyzing(true)
     try {
-      const tagsArray = tagsInput
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0)
-        .slice(0, 5)
-
-      await addSnippet({
-        title: title.trim(),
-        language,
-        code,
-        description: description.trim(),
-        is_public: isPublic,
-        tags: tagsArray
-      })
-      
-      // Reset Form
-      setTitle('')
-      setCode('// Ketik kodemu disini...')
-      setDescription('')
-      setTagsInput('')
-      setLanguage('') // PERBAIKAN: Reset ke kosong
-      setIsPublic(false)
-      
-      onClose()
-      showAlert('success', 'Berhasil!', 'Snippet baru telah disimpan.')
+        const result = await analyzeCodeWithAI(code)
+        
+        // Auto-fill form dari hasil analisis AI
+        setTitle(result.title)
+        setLanguage(result.language)
+        setDescription(result.description)
+        setTagsInput(result.tags.join(', '))
+        
+        showAlert('success', 'AI Selesai!', 'Judul, bahasa, dan tag telah diisi otomatis.')
     } catch (error) {
-      showAlert('error', 'Gagal', error.message)
+        console.error(error)
+        showAlert('error', 'Gagal Analisis', 'AI sedang sibuk. Silakan isi manual.')
     } finally {
-      setLoading(false)
+        setIsAnalyzing(false)
     }
   }
 
+  // --- LOGIKA FORMATTER (PRETTIER) ---
   const handleFormat = async () => {
-    // Jika bahasa belum dipilih, ingatkan user
     if (!language) {
-        showAlert('error', 'Pilih Bahasa', 'Pilih bahasa terlebih dahulu agar formatter bekerja dengan benar.')
+        showAlert('error', 'Pilih Bahasa', 'Bahasa harus terisi agar formatter bekerja.')
         return
     }
 
@@ -117,6 +79,67 @@ export default function AddSnippetModal({ isOpen, onClose }) {
     }
   }
 
+  // --- LOGIKA SUBMIT ---
+  const performSubmit = async () => {
+    // 1. Validasi Input Kosong
+    if (!title.trim()) {
+        showAlert('error', 'Validasi', 'Judul snippet wajib diisi.')
+        return
+    }
+    if (!language.trim()) {
+        showAlert('error', 'Validasi', 'Bahasa pemrograman wajib dipilih.')
+        return
+    }
+    if (!code.trim() || code.includes('Paste kodemu')) {
+        showAlert('error', 'Validasi', 'Kode tidak boleh kosong.')
+        return
+    }
+
+    // 2. Validasi Panjang (Security)
+    if (title.length > MAX_TITLE_LENGTH) {
+        showAlert('error', 'Judul Panjang', `Maksimal ${MAX_TITLE_LENGTH} karakter.`)
+        return
+    }
+    if (code.length > MAX_CODE_LENGTH) {
+        showAlert('error', 'Kode Besar', `Snippet terlalu besar (maksimal ${MAX_CODE_LENGTH} karakter).`)
+        return
+    }
+
+    setLoading(true)
+    try {
+      const tagsArray = tagsInput
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0)
+        .slice(0, 5) // Batasi 5 tag
+
+      await addSnippet({
+        title: title.trim(),
+        language,
+        code,
+        description: description.trim(),
+        is_public: isPublic,
+        tags: tagsArray
+      })
+      
+      // Reset Form
+      setTitle('')
+      setCode('// Paste kodemu di sini...')
+      setDescription('')
+      setTagsInput('')
+      setLanguage('')
+      setIsPublic(false)
+      
+      onClose()
+      showAlert('success', 'Tersimpan!', 'Snippet baru berhasil ditambahkan.')
+    } catch (error) {
+      showAlert('error', 'Gagal Simpan', error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // --- KEYBOARD SHORTCUTS ---
   useShortcut('s', () => {
     if (isOpen && !loading) performSubmit()
   }, { ctrlKey: true })
@@ -140,8 +163,8 @@ export default function AddSnippetModal({ isOpen, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-pastel-dark-border bg-gray-50 dark:bg-white/5">
           <h3 className="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
-            <Code2 size={20} className="text-pink-500" />
-            Create New Snippet
+            <Sparkles size={20} className="text-pink-500 animate-pulse" />
+            AI Smart Snippet
           </h3>
           <div className="flex items-center gap-2">
              <span className="hidden sm:inline-block text-[10px] font-bold text-gray-400 bg-gray-100 dark:bg-white/10 px-2 py-1 rounded border border-gray-200 dark:border-gray-600">
@@ -153,134 +176,152 @@ export default function AddSnippetModal({ isOpen, onClose }) {
           </div>
         </div>
 
-        {/* Body */}
-        <div className="p-6 overflow-y-auto custom-scrollbar">
-          <form id="snippet-form" onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* Judul */}
+        {/* Body Form */}
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
+          
+            {/* 1. SECTION EDITOR KODE (Code-First) */}
             <div>
-              <div className="flex justify-between">
-                <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Judul Snippet</label>
-                <span className={`text-[10px] ${title.length > MAX_TITLE_LENGTH ? 'text-red-500' : 'text-gray-400'}`}>{title.length}/{MAX_TITLE_LENGTH}</span>
-              </div>
-              <input 
-                type="text" 
-                required
-                placeholder="Contoh: Navbar Responsive"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                maxLength={MAX_TITLE_LENGTH}
-                className="w-full px-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none transition"
-              />
-            </div>
-
-            {/* Grid Bahasa & Visibility */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Bahasa</label>
-                {/* LanguageSelector akan menampilkan placeholder "Pilih atau ketik..." jika value kosong */}
-                <LanguageSelector value={language} onChange={(val) => setLanguage(val)} />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Visibility</label>
-                <select 
-                  value={isPublic}
-                  onChange={(e) => setIsPublic(e.target.value === 'true')}
-                  className="w-full px-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none transition cursor-pointer"
-                >
-                  <option value="false">Private (Hanya Saya)</option>
-                  <option value="true">Public (Masuk Forum)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Input Tags */}
-            <div>
-              <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Tags (Max 5)</label>
-              <div className="relative">
-                <Tag className="absolute left-3 top-2.5 text-gray-400" size={16} />
-                <input 
-                  type="text" 
-                  placeholder="react, frontend, button (pisahkan dengan koma)"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none transition"
-                />
-              </div>
-            </div>
-
-            {/* Code Editor */}
-            <div>
-              <div className="flex justify-between items-end mb-1">
-                <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Kode</label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">1. Masukkan Kode</label>
                 
-                {/* TOMBOL FORMAT */}
-                <button 
-                    type="button" 
-                    onClick={handleFormat}
-                    disabled={isFormatting}
-                    className="text-[10px] flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition disabled:opacity-50"
-                    title="Rapikan Kode (Prettier)"
-                >
-                    <Wand2 size={12} className={isFormatting ? "animate-spin" : ""} />
-                    {isFormatting ? "Formatting..." : "Format Code"}
-                </button>
+                <div className="flex gap-2">
+                    {/* Tombol Format */}
+                    <button 
+                        type="button" 
+                        onClick={handleFormat}
+                        disabled={isFormatting}
+                        className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 px-2 py-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition disabled:opacity-50"
+                    >
+                        <Wand2 size={12} className={isFormatting ? "animate-spin" : ""} />
+                        Format
+                    </button>
+
+                    {/* Tombol AI Magic */}
+                    <button 
+                        type="button" 
+                        onClick={handleAnalyzeCode}
+                        disabled={isAnalyzing}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-xs font-bold shadow-md hover:shadow-lg hover:brightness-110 transition transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {isAnalyzing ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14} />}
+                        {isAnalyzing ? "Menganalisis..." : "Auto-Detect with AI"}
+                    </button>
+                </div>
               </div>
               
               <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-inner group-focus-within:ring-2 ring-pink-500/20 transition">
                 <CodeMirror 
                   value={code} 
-                  height="200px" 
+                  height="250px" 
                   theme={theme === 'dark' ? dracula : githubLight} 
-                  extensions={[getLanguageExtension(language)]}
+                  extensions={[getLanguageExtension(language)]} 
                   onChange={(val) => setCode(val)}
                 />
               </div>
-              <div className="text-right">
+              <div className="text-right mt-1">
                  <span className={`text-[10px] ${code.length > MAX_CODE_LENGTH ? 'text-red-500' : 'text-gray-400'}`}>
                     {code.length} / {MAX_CODE_LENGTH} chars
                  </span>
               </div>
             </div>
 
-            {/* Deskripsi */}
-            <div>
-              <div className="flex justify-between">
-                <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Deskripsi</label>
-                <span className={`text-[10px] ${description.length > MAX_DESC_LENGTH ? 'text-red-500' : 'text-gray-400'}`}>{description.length}/{MAX_DESC_LENGTH}</span>
-              </div>
-              <textarea 
-                rows="2"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Catatan singkat..."
-                maxLength={MAX_DESC_LENGTH}
-                className="w-full px-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none transition"
-              />
+            {/* Divider Estetik */}
+            <div className="relative flex items-center py-2">
+                <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs uppercase tracking-wider font-semibold">Metadata Snippet</span>
+                <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
             </div>
 
-          </form>
+            {/* 2. HASIL GENERATE / MANUAL INPUT */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Judul */}
+                <div>
+                    <div className="flex justify-between">
+                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Judul</label>
+                        <span className={`text-[10px] ${title.length > MAX_TITLE_LENGTH ? 'text-red-500' : 'text-gray-400'}`}>{title.length}/{MAX_TITLE_LENGTH}</span>
+                    </div>
+                    <input 
+                        type="text" 
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="w-full px-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none transition placeholder-gray-400"
+                        placeholder="Judul otomatis..."
+                        maxLength={MAX_TITLE_LENGTH}
+                    />
+                </div>
+
+                {/* Bahasa */}
+                <div>
+                    <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Bahasa</label>
+                    <LanguageSelector value={language} onChange={setLanguage} />
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Deskripsi */}
+                <div>
+                    <div className="flex justify-between">
+                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Deskripsi</label>
+                        <span className={`text-[10px] ${description.length > MAX_DESC_LENGTH ? 'text-red-500' : 'text-gray-400'}`}>{description.length}/{MAX_DESC_LENGTH}</span>
+                    </div>
+                    <textarea 
+                        rows="3"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="w-full px-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none resize-none transition placeholder-gray-400"
+                        placeholder="Penjelasan singkat..."
+                        maxLength={MAX_DESC_LENGTH}
+                    />
+                </div>
+
+                {/* Tags & Visibilitas */}
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Tags (Max 5)</label>
+                        <div className="relative">
+                            <Tag className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                            <input 
+                                type="text" 
+                                value={tagsInput}
+                                onChange={(e) => setTagsInput(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none transition placeholder-gray-400"
+                                placeholder="tag1, tag2..."
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Visibilitas</label>
+                        <select 
+                          value={isPublic}
+                          onChange={(e) => setIsPublic(e.target.value === 'true')}
+                          className="w-full px-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none transition cursor-pointer"
+                        >
+                          <option value="false">Private (Hanya Saya) 🔒</option>
+                          <option value="true">Public (Masuk Forum) 🌍</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         {/* Footer Actions */}
         <div className="p-4 bg-gray-50 dark:bg-white/5 border-t border-gray-100 dark:border-pastel-dark-border flex justify-end gap-3">
           <button 
             onClick={onClose}
-            type="button"
             className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg font-medium transition hover:scale-105 active:scale-95"
           >
             Batal
           </button>
           <button 
-            type="submit"
-            form="snippet-form"
+            onClick={performSubmit}
             disabled={loading}
-            className="px-6 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg font-bold shadow-lg shadow-pink-500/30 hover:-translate-y-0.5 active:scale-95 transition-all flex items-center gap-2"
+            className="px-6 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg font-bold shadow-lg shadow-pink-500/30 transition-all flex items-center gap-2 hover:-translate-y-0.5 active:scale-95"
           >
             {loading ? <Loader2 className="animate-spin" size={18}/> : 'Simpan'}
           </button>
         </div>
+
       </div>
     </div>
   )
