@@ -1,9 +1,17 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Inisialisasi API
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+// Inisialisasi hanya jika API Key ada
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
 export const analyzeCodeWithAI = async (codeSnippet) => {
+  // 1. Cek apakah API Key sudah dipasang
+  if (!apiKey || !genAI) {
+    console.error("API Key Gemini belum dipasang di .env.local");
+    throw new Error("API Key Google Gemini belum dikonfigurasi. Silakan cek file .env.local Anda.");
+  }
+
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
@@ -28,7 +36,11 @@ export const analyzeCodeWithAI = async (codeSnippet) => {
 
     return JSON.parse(cleanedText);
   } catch (error) {
-    console.error("AI Error:", error);
-    throw new Error("Gagal menganalisis kode. Coba lagi manual.");
+    console.error("AI Service Error:", error);
+    // Lempar error yang lebih user-friendly
+    if (error.message.includes("API key")) {
+        throw new Error("API Key tidak valid. Cek konfigurasi.");
+    }
+    throw new Error("Gagal menganalisis kode. Silakan isi manual.");
   }
 };
