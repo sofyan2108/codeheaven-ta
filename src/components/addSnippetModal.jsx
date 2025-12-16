@@ -55,7 +55,7 @@ export default function AddSnippetModal({ isOpen, onClose }) {
         showAlert('success', 'AI Selesai!', 'Judul, bahasa, dan tag telah diisi otomatis.')
     } catch (error) {
         console.error(error)
-        showAlert('error', 'Gagal Analisis', 'AI sedang sibuk. Silakan isi manual.')
+        showAlert('error', 'Gagal Analisis', error.message || 'Terjadi kesalahan pada AI.')
     } finally {
         setIsAnalyzing(false)
     }

@@ -12,35 +12,56 @@ export const analyzeCodeWithAI = async (codeSnippet) => {
     throw new Error("API Key Google Gemini belum dikonfigurasi. Silakan cek file .env.local Anda.");
   }
 
+
+  let selectedModel = "gemini-1.5-flash"; // Default fallback
+
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+     // 2. Dynamic Model Discovery (Cari model yang tersedia di akun user)
+     const listModelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+     const response = await fetch(listModelsUrl);
+     const data = await response.json();
+     
+     if (data.models) {
+        // Cari model Gemini pertama yang support generateContent
+        const validModel = data.models.find(m => 
+            m.name.includes("gemini") && 
+            m.supportedGenerationMethods?.includes("generateContent")
+        );
 
-    const prompt = `
-      Analyze the following code snippet and return a JSON object (without Markdown formatting). 
-      The JSON must have these keys:
-      1. "title": A short, descriptive title (max 50 chars).
-      2. "language": The programming language (lowercase, e.g., "javascript", "python", "html", "css").
-      3. "description": A concise explanation of what the code does (max 200 chars, in Indonesian language).
-      4. "tags": An array of 3-5 keywords relevant to the code (lowercase).
-
-      Code to analyze:
-      ${codeSnippet}
-    `;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    // Bersihkan format jika AI mengembalikan Markdown (```json ... ```)
-    const cleanedText = text.replace(/```json|```/g, "").trim();
-
-    return JSON.parse(cleanedText);
-  } catch (error) {
-    console.error("AI Service Error:", error);
-    // Lempar error yang lebih user-friendly
-    if (error.message.includes("API key")) {
-        throw new Error("API Key tidak valid. Cek konfigurasi.");
-    }
-    throw new Error("Gagal menganalisis kode. Silakan isi manual.");
+        if (validModel) {
+            // Hapus prefix "models/" jika ada, karena SDK kadang menambahkannya sendiri
+            selectedModel = validModel.name.replace("models/", "");
+            console.log("Auto-detected available model:", selectedModel);
+        }
+     }
+  } catch (e) {
+     console.warn("Gagal auto-detect model, menggunakan default:", selectedModel);
   }
+
+  try {
+    const model = genAI.getGenerativeModel({ model: selectedModel });
+
+      
+      const prompt = `
+        Analyze the following code snippet and return a JSON object (without Markdown formatting). 
+        The JSON must have these keys:
+        1. "title": A short, descriptive title (max 50 chars).
+        2. "language": The programming language (lowercase, e.g., "javascript", "python", "html", "css").
+        3. "description": A concise explanation of what the code does (max 200 chars, in Indonesian language).
+        4. "tags": An array of 3-5 keywords relevant to the code (lowercase).
+
+        Code to analyze:
+        ${codeSnippet}
+      `;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      const cleanedText = text.replace(/```json|```/g, "").trim();
+      
+      return JSON.parse(cleanedText);
+    } catch (error) {
+       console.error(`AI Model (${selectedModel}) Failed:`, error);
+       throw new Error(error.message || "Gagal menganalisis kode.");
+    }
 };
