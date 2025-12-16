@@ -38,7 +38,7 @@ export const analyzeCodeWithAI = async (codeSnippet) => {
      console.warn("Gagal auto-detect model, menggunakan default:", selectedModel);
   }
 
-  try {
+
     const model = genAI.getGenerativeModel({ model: selectedModel });
 
       
@@ -54,14 +54,29 @@ export const analyzeCodeWithAI = async (codeSnippet) => {
         ${codeSnippet}
       `;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-      const cleanedText = text.replace(/```json|```/g, "").trim();
-      
-      return JSON.parse(cleanedText);
-    } catch (error) {
-       console.error(`AI Model (${selectedModel}) Failed:`, error);
-       throw new Error(error.message || "Gagal menganalisis kode.");
-    }
+      const maxRetries = 3;
+      let attempt = 0;
+
+      while (attempt < maxRetries) {
+        try {
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+            const cleanedText = text.replace(/```json|```/g, "").trim();
+            
+            return JSON.parse(cleanedText);
+        } catch (error) {
+            const isOverloaded = error.message.includes("503") || error.message.includes("overloaded");
+            
+            if (isOverloaded && attempt < maxRetries - 1) {
+                attempt++;
+                const waitTime = attempt * 2000; // 2s, 4s...
+                console.warn(`AI Model busy (503). Retrying in ${waitTime}ms... (Attempt ${attempt}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+            } else {
+                console.error(`AI Model (${selectedModel}) Failed after ${attempt + 1} attempts:`, error);
+                throw new Error(isOverloaded ? "Server AI sedang sibuk (Overloaded). Silakan coba sesaat lagi." : (error.message || "Gagal menganalisis kode."));
+            }
+        }
+      }
 };
