@@ -257,50 +257,48 @@ export default function AddSnippetModal({ isOpen, onClose }) {
                 </div>
             </div>
 
+            {/* Tags & Visibilitas */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Deskripsi */}
                 <div>
-                    <div className="flex justify-between">
-                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Deskripsi</label>
-                        <span className={`text-[10px] ${description.length > MAX_DESC_LENGTH ? 'text-red-500' : 'text-gray-400'}`}>{description.length}/{MAX_DESC_LENGTH}</span>
+                    <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Tags (Max 5)</label>
+                    <div className="relative">
+                        <Tag className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                        <input 
+                            type="text" 
+                            value={tagsInput}
+                            onChange={(e) => setTagsInput(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none transition placeholder-gray-400"
+                            placeholder="tag1, tag2..."
+                        />
                     </div>
-                    <textarea 
-                        rows="3"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="w-full px-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none resize-none transition placeholder-gray-400"
-                        placeholder="Penjelasan singkat..."
-                        maxLength={MAX_DESC_LENGTH}
-                    />
                 </div>
+                <div>
+                    <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Visibilitas</label>
+                    <select 
+                      value={isPublic}
+                      onChange={(e) => setIsPublic(e.target.value === 'true')}
+                      className="w-full px-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none transition cursor-pointer"
+                    >
+                      <option value="false">Private (Hanya Saya) 🔒</option>
+                      <option value="true">Public (Masuk Forum) 🌍</option>
+                    </select>
+                </div>
+            </div>
 
-                {/* Tags & Visibilitas */}
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Tags (Max 5)</label>
-                        <div className="relative">
-                            <Tag className="absolute left-3 top-2.5 text-gray-400" size={16} />
-                            <input 
-                                type="text" 
-                                value={tagsInput}
-                                onChange={(e) => setTagsInput(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none transition placeholder-gray-400"
-                                placeholder="tag1, tag2..."
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Visibilitas</label>
-                        <select 
-                          value={isPublic}
-                          onChange={(e) => setIsPublic(e.target.value === 'true')}
-                          className="w-full px-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none transition cursor-pointer"
-                        >
-                          <option value="false">Private (Hanya Saya) 🔒</option>
-                          <option value="true">Public (Masuk Forum) 🌍</option>
-                        </select>
-                    </div>
+            {/* Deskripsi */}
+            <div>
+                <div className="flex justify-between">
+                    <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Deskripsi</label>
+                    <span className={`text-[10px] ${description.length > MAX_DESC_LENGTH ? 'text-red-500' : 'text-gray-400'}`}>{description.length}/{MAX_DESC_LENGTH}</span>
                 </div>
+                <textarea 
+                    rows="3"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full px-4 py-2 bg-white dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-pink-500/50 dark:text-white focus:outline-none resize-none transition placeholder-gray-400"
+                    placeholder="Penjelasan singkat..."
+                    maxLength={MAX_DESC_LENGTH}
+                />
             </div>
 
         </div>
