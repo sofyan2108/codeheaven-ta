@@ -2,7 +2,7 @@ import { useAuthStore } from '../store/authStore'
 import { useThemeStore } from '../store/themeStore'
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Mail, Lock, User, Loader2, ArrowRight, Sun, Moon, Code } from 'lucide-react'
+import { Mail, Lock, User, Loader2, ArrowRight, Sun, Moon, Code, Eye, EyeOff } from 'lucide-react'
 
 export default function Login() {
   const { loginWithEmail, registerWithEmail, user } = useAuthStore()
@@ -11,6 +11,7 @@ export default function Login() {
   
   const [isRegister, setIsRegister] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -137,13 +138,21 @@ export default function Login() {
               <div className="relative">
                 <Lock className="absolute left-3.5 top-3.5 text-gray-400 group-focus-within:text-pink-500 transition" size={20} />
                 <input 
-                  type="password" 
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 dark:text-white transition-all placeholder-gray-400"
+                  type={showPassword ? "text" : "password"}
+                  className="w-full pl-11 pr-12 py-3 bg-gray-50 dark:bg-[#252a33] border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500/50 dark:text-white transition-all placeholder-gray-400"
                   placeholder="••••••••"
                   required
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                 />
+                <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition focus:outline-none"
+                    title={showPassword ? "Sembunyikan password" : "Lihat password"}
+                >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
 

@@ -60,3 +60,34 @@ export const popularLanguages = [
   "Dart", "R", "Shell", "PowerShell", "Markdown", "JSON", "XML", "YAML",
   "Scala", "Perl", "Lua", "Elixir", "Haskell", "Objective-C"
 ].sort() // Urutkan abjad
+
+// 4. Helper File Extension untuk Download
+export const getFileExtension = (lang) => {
+  const normalizedLang = lang.toLowerCase().trim()
+  const map = {
+    javascript: 'js', js: 'js', jsx: 'jsx',
+    typescript: 'ts', ts: 'ts', tsx: 'tsx',
+    html: 'html',
+    css: 'css',
+    python: 'py', py: 'py',
+    php: 'php',
+    java: 'java',
+    sql: 'sql',
+    'c++': 'cpp', cpp: 'cpp', c: 'c',
+    'c#': 'cs', csharp: 'cs',
+    go: 'go',
+    rust: 'rs',
+    swift: 'swift',
+    ruby: 'rb',
+    kotlin: 'kt',
+    dart: 'dart',
+    r: 'r',
+    shell: 'sh',
+    powershell: 'ps1',
+    markdown: 'md',
+    json: 'json',
+    xml: 'xml',
+    yaml: 'yaml'
+  }
+  return map[normalizedLang] || 'txt'
+}

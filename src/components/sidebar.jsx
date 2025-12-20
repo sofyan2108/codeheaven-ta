@@ -54,7 +54,7 @@ export default function Sidebar({ onOpenModal, isOpen, onClose }) {
       )}
 
       {/* SIDEBAR CONTAINER */}
-      <aside className={`fixed left-0 top-0 h-screen w-64 bg-white dark:bg-pastel-dark-surface border-r border-gray-200 dark:border-pastel-dark-border flex flex-col z-30 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+      <aside className={`fixed left-0 top-0 h-screen w-64 bg-white dark:bg-pastel-dark-surface border-r border-gray-200 dark:border-pastel-dark-border flex flex-col z-30 transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         

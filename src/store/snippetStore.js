@@ -134,6 +134,32 @@ export const useSnippetStore = create((set, get) => ({
         await supabase.from('favorites').delete().match({ user_id: user.id, snippet_id: snippetId })
     } else {
         await supabase.from('favorites').insert({ user_id: user.id, snippet_id: snippetId })
+
+        // NOTIFIKASI: Kirim notif ke pemilik snippet
+        try {
+            let targetUserId = null;
+            const targetSnippet = get().exploreSnippets.find(s => s.id === snippetId) || get().snippets.find(s => s.id === snippetId)
+            
+            if (targetSnippet) {
+                targetUserId = targetSnippet.user_id
+            } else {
+                // Fetch fallback jika snippet tidak ada di store (misal di halaman detail direct access)
+                const { data: dbSnippet } = await supabase.from('snippets').select('user_id').eq('id', snippetId).single()
+                if (dbSnippet) targetUserId = dbSnippet.user_id
+            }
+
+            if (targetUserId && targetUserId !== user.id) {
+               const { error: notifError } = await supabase.from('notifications').insert({
+                  recipient_id: targetUserId,
+                  actor_id: user.id,
+                  snippet_id: snippetId,
+                  type: 'like'
+               })
+               if (notifError) console.error("Failed to crate like notification:", notifError)
+            }
+        } catch (err) {
+            console.error("Error creating notification:", err)
+        }
     }
   },
 
@@ -157,6 +183,21 @@ export const useSnippetStore = create((set, get) => ({
     const { data, error } = await supabase.from('snippets').insert([newSnippet]).select()
     if (error) throw error
     set((state) => ({ snippets: [data[0], ...state.snippets] }))
+
+    // NOTIFIKASI: Fork
+    try {
+        if (snippet.user_id !== user.id) {
+            const { error: notifError } = await supabase.from('notifications').insert({
+                recipient_id: snippet.user_id, // Gunakan snippet asli, bukan yang baru
+                actor_id: user.id,
+                snippet_id: snippet.id, 
+                type: 'fork'
+             })
+             if (notifError) console.error("Failed to create fork notification:", notifError)
+        }
+    } catch (err) {
+        console.error("Error creating notification:", err)
+    }
   },
 
   // --- CRUD Standar ---
@@ -181,8 +222,19 @@ export const useSnippetStore = create((set, get) => ({
   },
 
   incrementCopy: async (id) => {
+    // 1. Cek Session Storage untuk mencegah spamming copy di sesi yang sama
+    const STORAGE_KEY = 'copied_snippets_session'
+    const sessionCopied = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '[]')
+    
+    if (sessionCopied.includes(id)) {
+        return // Sudah dicopy di sesi ini, jangan tambah hitungan
+    }
+
+    // 2. Lanjut update ke DB
     const { error } = await supabase.rpc('increment_copy_count', { snippet_id: id })
     if (error) return
+
+    // 3. Update state lokal
     const updateCount = (s) => s.id === id ? { ...s, copy_count: (s.copy_count || 0) + 1 } : s
     
     set((state) => ({
@@ -190,6 +242,38 @@ export const useSnippetStore = create((set, get) => ({
       exploreSnippets: state.exploreSnippets.map(updateCount),
       currentProfileSnippets: state.currentProfileSnippets.map(updateCount)
     }))
+
+    // 4. Simpan ke Session Storage agar persist saat refresh
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...sessionCopied, id]))
+
+    // NOTIFIKASI: Copy
+    try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+            let targetUserId = null;
+            const targetSnippet = get().exploreSnippets.find(s => s.id === id) || get().snippets.find(s => s.id === id)
+            
+            if (targetSnippet) {
+                targetUserId = targetSnippet.user_id
+            } else {
+                 // Fetch fallback
+                 const { data: dbSnippet } = await supabase.from('snippets').select('user_id').eq('id', id).single()
+                 if (dbSnippet) targetUserId = dbSnippet.user_id
+            }
+
+            if (targetUserId && targetUserId !== user.id) {
+                const { error: notifError } = await supabase.from('notifications').insert({
+                    recipient_id: targetUserId,
+                    actor_id: user.id,
+                    snippet_id: id,
+                    type: 'copy'
+                })
+                if (notifError) console.error("Failed to create copy notification:", notifError)
+            }
+        }
+    } catch (err) {
+        console.error("Error creating notification:", err)
+    }
   },
 
   // Biarkan fetchFavorites untuk backward compatibility jika ada komponen lama yang pakai

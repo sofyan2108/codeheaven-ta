@@ -5,11 +5,11 @@ import { useSnippetStore } from '../store/snippetStore'
 import { useAuthStore } from '../store/authStore'
 import { useThemeStore } from '../store/themeStore'
 import { useAlertStore } from '../store/alertStore'
-import { Loader2, Copy, Check, GitFork, Pencil, Heart, Share2, ArrowLeft, Calendar, User, Globe, Lock, Tag, Trash2, Save, AlertTriangle, Wand2, X } from 'lucide-react'
+import { Loader2, Copy, Check, GitFork, Pencil, Heart, Share2, ArrowLeft, Calendar, User, Globe, Lock, Tag, Trash2, Save, AlertTriangle, Wand2, X, Download } from 'lucide-react'
 import CodeMirror from '@uiw/react-codemirror'
 import { dracula } from '@uiw/codemirror-theme-dracula'
 import { githubLight } from '@uiw/codemirror-theme-github'
-import { getLanguageExtension, getLangColor } from '../utils/languageConfig'
+import { getLanguageExtension, getLangColor, getFileExtension } from '../utils/languageConfig'
 import LanguageSelector from '../components/languageSelector'
 import { formatCode } from '../utils/formatCode'
 
@@ -46,6 +46,7 @@ export default function DetailSnippet() {
   // State Modal Konfirmasi
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showForkConfirm, setShowForkConfirm] = useState(false)
+  const [showDownloadConfirm, setShowDownloadConfirm] = useState(false)
 
   // --- EFFECT: LOAD DATA ---
   useEffect(() => {
@@ -102,6 +103,35 @@ export default function DetailSnippet() {
     }
     setIsCopied(true)
     setTimeout(() => setIsCopied(false), 2000)
+  }
+
+  const handleDownload = () => {
+    setShowDownloadConfirm(true)
+  }
+
+  const confirmDownload = () => {
+    setShowDownloadConfirm(false)
+    const extension = getFileExtension(isEditing ? formData.language : snippet.language)
+    // Buat nama file aman
+    const title = isEditing ? formData.title : snippet.title
+    const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+    const fileName = `${safeTitle}.${extension}`
+
+    const code = isEditing ? formData.code : snippet.code
+    const blob = new Blob([code], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    
+    incrementCopy(snippet.id)
+    showAlert('success', 'Download Dimulai', `File ${fileName} sedang didownload.`)
   }
 
   const handleFormat = async () => {
@@ -233,7 +263,7 @@ export default function DetailSnippet() {
         </button>
 
         <form onSubmit={saveChanges}> 
-
+        
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
           <div className="flex-1 w-full">
             
@@ -359,6 +389,7 @@ export default function DetailSnippet() {
                 {isEditing && (
                     <button type="button" onClick={handleFormat} disabled={isFormatting} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 px-3 py-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition disabled:opacity-50"><Wand2 size={14} className={isFormatting ? "animate-spin" : ""} />{isFormatting ? "Formatting..." : "Format Code"}</button>
                 )}
+                <button type="button" onClick={handleDownload} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition border text-gray-600 bg-white border-gray-200 hover:border-pastel-primary hover:text-pastel-primary dark:text-gray-300 dark:bg-white/5 dark:border-gray-700 dark:hover:text-white" title="Download File"><Download size={16} /> Download</button>
                 <button type="button" onClick={handleCopy} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition border ${isCopied ? 'text-green-600 bg-green-50 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900' : 'text-gray-600 bg-white border-gray-200 hover:border-pastel-primary hover:text-pastel-primary dark:text-gray-300 dark:bg-white/5 dark:border-gray-700 dark:hover:text-white'}`}>{isCopied ? <><Check size={16} /> Copied</> : <><Copy size={16} /> Copy Raw</>}</button>
             </div>
           </div>

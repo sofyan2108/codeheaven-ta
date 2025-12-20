@@ -1,4 +1,4 @@
-import { Copy, Tag, Check, Globe, Lock, User as UserIcon, Heart, GitFork, X } from 'lucide-react'
+import { Copy, Tag, Check, Globe, Lock, User as UserIcon, Heart, GitFork, X, Download } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import CodeMirror from '@uiw/react-codemirror'
@@ -8,12 +8,13 @@ import { useSnippetStore } from '../store/snippetStore'
 import { useThemeStore } from '../store/themeStore'
 import { useAuthStore } from '../store/authStore'
 import { useAlertStore } from '../store/alertStore'
-import { getLanguageExtension, getLangColor } from '../utils/languageConfig'
+import { getLanguageExtension, getLangColor, getFileExtension } from '../utils/languageConfig'
 
 export default function SnippetCard({ snippet }) {
   const [isCopied, setIsCopied] = useState(false)
   const [forkLoading, setForkLoading] = useState(false)
   const [showForkConfirm, setShowForkConfirm] = useState(false)
+  const [showDownloadConfirm, setShowDownloadConfirm] = useState(false)
   
   const { incrementCopy, toggleLike, forkSnippet, favoriteIds } = useSnippetStore()
   const { showAlert } = useAlertStore()
@@ -28,6 +29,36 @@ export default function SnippetCard({ snippet }) {
     incrementCopy(snippet.id)
     setIsCopied(true)
     setTimeout(() => setIsCopied(false), 2000)
+  }
+
+  const handleDownload = () => {
+    setShowDownloadConfirm(true)
+  }
+
+  const confirmDownload = () => {
+    setShowDownloadConfirm(false)
+    const extension = getFileExtension(snippet.language)
+    // Buat nama file aman (hapus spasi/karakter aneh)
+    const safeTitle = snippet.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+    const fileName = `${safeTitle}.${extension}`
+
+    const blob = new Blob([snippet.code], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    
+    // Trigger download via anchor tag
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    
+    // Cleanup
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    
+    // Hitung sebagai 'copy' juga karena user mengambil kode
+    incrementCopy(snippet.id)
+    showAlert('success', 'Download Dimulai', `File ${fileName} sedang didownload.`)
   }
 
   const handleLikeClick = () => {
@@ -150,7 +181,7 @@ export default function SnippetCard({ snippet }) {
                 extensions={[getLanguageExtension(snippet.language)]}
                 editable={false}
                 basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false }}
-                className="text-sm pointer-events-none"
+                className="text-sm"
             />
             <div className={`absolute bottom-0 left-0 right-0 p-3 flex gap-2 overflow-x-auto custom-scrollbar pt-8 ${
                 theme === 'dark' 
@@ -178,16 +209,25 @@ export default function SnippetCard({ snippet }) {
                 </span>
             </div>
 
-            <button 
-                onClick={handleCopy}
-                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold shadow-md transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 ${
-                    isCopied 
-                    ? 'bg-green-500 text-white shadow-green-500/30'
-                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20 dark:bg-blue-600 dark:hover:bg-blue-500'
-                }`}
-            >
-                {isCopied ? <><Check size={18} className="animate-bounce" /> COPIED!</> : <><Copy size={18} /> Copy Code</>}
-            </button>
+            <div className="flex gap-2">
+                <button 
+                    onClick={handleDownload}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95"
+                    title="Download Code"
+                >
+                    <Download size={18} />
+                </button>
+                <button 
+                    onClick={handleCopy}
+                    className={`flex-[3] flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold shadow-md transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 ${
+                        isCopied 
+                        ? 'bg-green-500 text-white shadow-green-500/30'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20 dark:bg-blue-600 dark:hover:bg-blue-500'
+                    }`}
+                >
+                    {isCopied ? <><Check size={18} className="animate-bounce" /> COPIED!</> : <><Copy size={18} /> Copy Code</>}
+                </button>
+            </div>
         </div>
       </div>
 
@@ -224,6 +264,45 @@ export default function SnippetCard({ snippet }) {
                         className="flex-1 py-2.5 rounded-xl font-bold text-white bg-purple-500 hover:bg-purple-600 shadow-lg shadow-purple-500/30 transition flex items-center justify-center gap-2"
                     >
                         <GitFork size={18} /> Ya, Fork
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI DOWNLOAD */}
+      {showDownloadConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-pastel-dark-surface w-full max-w-sm rounded-2xl shadow-2xl border border-gray-100 dark:border-pastel-dark-border p-6 transform transition-all animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
+                        <Download className="text-blue-500" size={20} />
+                        Konfirmasi Download?
+                    </h3>
+                    <button 
+                        onClick={() => setShowDownloadConfirm(false)}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+                
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 leading-relaxed">
+                    File snippet <strong>"{snippet.title}"</strong> akan disimpan ke perangkat Anda.
+                </p>
+                
+                <div className="flex gap-3">
+                    <button 
+                        onClick={() => setShowDownloadConfirm(false)}
+                        className="flex-1 py-2.5 rounded-xl font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition"
+                    >
+                        Batal
+                    </button>
+                    <button 
+                        onClick={confirmDownload}
+                        className="flex-1 py-2.5 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/30 transition flex items-center justify-center gap-2"
+                    >
+                        <Download size={18} /> Unduh
                     </button>
                 </div>
             </div>

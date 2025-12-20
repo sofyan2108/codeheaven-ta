@@ -1,15 +1,26 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import Login from './pages/login'
-import Dashboard from './pages/dashboard'
-import Explore from './pages/explore'
-import DetailSnippet from './pages/detailSnippet'
-import UserProfile from './pages/userProfile'
-import NotFound from './pages/notFound' // Import Halaman 404
+import { useEffect, Suspense, lazy } from 'react'
+import { Loader2 } from 'lucide-react'
 import GlobalAlert from './components/globalAlert'
 import { useAuthStore } from './store/authStore'
 import { useThemeStore } from './store/themeStore'
-import { useEffect } from 'react'
-import LandingPage from './pages/landingPage'
+
+// Lazy Load Pages
+const Login = lazy(() => import('./pages/login'))
+const Dashboard = lazy(() => import('./pages/dashboard'))
+const Explore = lazy(() => import('./pages/explore'))
+const DetailSnippet = lazy(() => import('./pages/detailSnippet'))
+const UserProfile = lazy(() => import('./pages/userProfile'))
+const NotFound = lazy(() => import('./pages/notFound'))
+const LandingPage = lazy(() => import('./pages/landingPage'))
+
+function LoadingFallback() {
+  return (
+    <div className="h-screen w-screen flex items-center justify-center bg-white dark:bg-[#0F1218]">
+      <Loader2 className="animate-spin text-pink-500" size={40} />
+    </div>
+  )
+}
 
 function App() {
   const { checkUser } = useAuthStore()
@@ -25,17 +36,19 @@ function App() {
       {/* Global Alert dipasang di sini agar muncul di atas semua halaman */}
       <GlobalAlert />
       
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/explore" element={<Explore />} />
-        <Route path="/snippet/:id" element={<DetailSnippet />} />
-        <Route path="/user/:userId" element={<UserProfile />} />
-        <Route path="/login" element={<Login />} />
-        
-        {/* ROUTE 404 (WAJIB DI PALING BAWAH) */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/explore" element={<Explore />} />
+          <Route path="/snippet/:id" element={<DetailSnippet />} />
+          <Route path="/user/:userId" element={<UserProfile />} />
+          <Route path="/login" element={<Login />} />
+          
+          {/* ROUTE 404 (WAJIB DI PALING BAWAH) */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

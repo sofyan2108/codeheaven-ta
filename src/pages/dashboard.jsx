@@ -130,7 +130,7 @@ export default function Dashboard() {
                 className="w-full pl-11 pr-4 py-3 bg-white dark:bg-pastel-dark-surface rounded-2xl shadow-sm focus:shadow-md focus:ring-0 text-gray-700 dark:text-white placeholder-gray-400 transition-all outline-none"
             />
             <div className="absolute right-4 top-3.5 hidden md:flex items-center gap-1 pointer-events-none">
-                <kbd className="hidden sm:inline-block border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-300 rounded px-1.5 py-0.5 text-[10px] font-sans font-bold shadow-sm">Ctrl K</kbd>
+                <kbd className="hidden sm:inline-block border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-300 rounded px-1.5 py-0.5 text-[10px] font-sans font-bold shadow-sm">Ctrl + K</kbd>
             </div>
         </div>
 
